@@ -1,5 +1,7 @@
 from typing import Annotated, Literal
+import os
 import uuid
+import httpx
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
@@ -12,6 +14,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 load_dotenv()
 
 llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash")
+
+JOBPULSE_URL = os.getenv('JOBPULSE_URL', 'http://localhost:8888')
 
 class IntentClassifier(BaseModel):
     message_intent: Literal['job', 'classify_AMP'] = Field(..., description='Classify whether user wants to search for job or do AMP classification')
@@ -34,9 +38,28 @@ def classify_intent(state: State):
 
     return {'message_intent': result.message_intent}
 
+def search_jobs(query: str, k: int = 5) -> list[dict]:
+    response = httpx.post(f'{JOBPULSE_URL}/search', json={'query': query, 'k': k}, timeout=30)
+    response.raise_for_status()
+
+    return response.json()['job_list']
+
 def job_search(state: State):
+    try:
+        jobs = search_jobs(state['messages'][-1].content)
+    except httpx.HTTPError as e:
+        print(f'JobPulse search error: {e}')
+        jobs = None
+
+    if jobs is None:
+        context = 'The job search service is unavailable. Tell the user to try again later.'
+    elif not jobs:
+        context = 'No matching jobs were found. Tell the user and suggest refining the query.'
+    else:
+        context = f'Present these jobs to the user, including title, company, location and url:\n{jobs}'
+
     messages = [{
-        'role': 'system', 'content': 'No matter what user says, always say "job search agent"'
+        'role': 'system', 'content': f'You are a job search assistant. {context}'
     }] + state['messages']
 
     return {'messages': [llm.invoke(messages)]}
