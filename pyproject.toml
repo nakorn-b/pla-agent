@@ -1,13 +1,15 @@
 [project]
 name = "pla-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "Agent for PLA"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.143.0",
     "langchain-google-genai>=4.4.1",
+    "langchain[mcp]>=1.4.7",
     "langgraph>=1.2.14",
+    "requests>=2.34.2",
 ]
 
 [tool.hatch.build.targets.wheel]
