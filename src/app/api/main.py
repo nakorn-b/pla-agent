@@ -1,12 +1,20 @@
 import os
-
-from fastapi import FastAPI
+from uuid import uuid4
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from contextlib import asynccontextmanager
 
-from app.graph.agent import agent_chat
+from app.graph.agent import agent_chat, init_graph
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.chat_graph = await init_graph()  # built once at startup
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 # Let the PLA frontend call the API directly from the browser.
 app.add_middleware(
@@ -19,6 +27,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+    thread_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
 class ChatResponse(BaseModel):
@@ -26,5 +35,6 @@ class ChatResponse(BaseModel):
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
-    return ChatResponse(message=agent_chat(req.message))
+async def chat(req: ChatRequest, request: Request) -> ChatResponse:
+    graph = request.app.state.chat_graph
+    return ChatResponse(message=await agent_chat(graph, req.message, req.thread_id))
