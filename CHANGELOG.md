@@ -5,7 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+<!-- ## [Unreleased] -->
+
+## [1.1.0] - 2026-11-08
+
+### Added
+
+- MCP integration with JobPulse and DistilESM-2-AMP.
+  At startup the agent loads its tools from each service's MCP server over SSE,
+  using `langchain[mcp]`.
+- `JOBPULSE_MCP_URL` (defaults to `http://localhost:8001/sse`) and `AMP_MCP_URL`
+  (defaults to `http://localhost:8002/sse`) environment variables to configure
+  the MCP servers.
+
+### Changed
+
+- The agent is now a tool-calling graph (`agent → tools → respond`). Gemini picks
+  which MCP tool to call, or replies directly when no tool is needed, and a
+  follow-up step summarizes the tool's result for the user.
+- AMP classification now calls the real DistilESM-2-AMP model through MCP
+  instead of returning a placeholder reply.
+- The graph is built asynchronously once at API startup (FastAPI lifespan),
+  and `POST /chat` is now async.
+
+### Removed
+
+- The `intent_classifier` node and the separate `job` and `AMP_classify` nodes.
+- The direct HTTP call to JobPulse `/search` and the `JOBPULSE_URL` environment
+  variable.
+
 
 ## [1.0.0] - 2026-10-24
 
@@ -28,5 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial project setup: `pyproject.toml`, `uv.lock`, Python version pin and
   `.gitignore`.
 
-[unreleased]: https://github.com/nakorn-b/pla-agent/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/nakorn-b/pla-agent/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/nakorn-b/pla-agent/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/nakorn-b/pla-agent/releases/tag/v1.0.0
